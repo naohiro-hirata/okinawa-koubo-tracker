@@ -9,11 +9,22 @@ on:
 permissions:
   contents: write
 
+# スケジュール実行と手動実行が重なると、同じ data.json を二重に更新して
+# push が衝突する。先行ジョブの完了を待たせる（中断はしない）。
+concurrency:
+  group: scrape-data
+  cancel-in-progress: false
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 後段の git pull --rebase が共通祖先を辿れるように履歴を全て取得する
+          # （デフォルトの浅いクローンだと rebase が失敗しうる）。
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -30,5 +41,12 @@ jobs:
           git config user.name "koubo-tracker-bot"
           git config user.email "actions@users.noreply.github.com"
           git add data.json
-          git diff --staged --quiet || git commit -m "chore: update data.json ($(date -u +'%Y-%m-%d %H:%M UTC'))"
-          git push
+          if git diff --staged --quiet; then
+            echo "data.json に変更なし。commit/push をスキップします。"
+            exit 0
+          fi
+          git commit -m "chore: update data.json ($(date -u +'%Y-%m-%d %H:%M UTC'))"
+          # checkout 後にリモートが進んでいると push が non-fast-forward で失敗するため、
+          # 自分のコミットを最新の main の上に載せ替えてから push する。
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

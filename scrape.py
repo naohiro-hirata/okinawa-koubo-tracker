@@ -54,10 +54,15 @@ CATEGORY_NAMES = [
 ]
 
 HEADERS = {
-    "User-Agent": "okinawa-koubo-tracker/1.0 (+internal team tool; contact: set-your-contact-here)"
+    "User-Agent": "okinawa-koubo-tracker/1.0 (+internal team tool; contact: n-hirata052@promo-uruma.com)"
 }
 REQUEST_INTERVAL_SEC = 1.0  # 県サイトへの負荷軽減のため、リクエスト間に間隔を空ける
 TIMEOUT = 20
+
+# 県サイトのHTML構造が変わるとカテゴリリンクを拾えなくなる。そのまま処理を続けると
+# 「今回1件も検出できなかった」＝「全案件がサイトから消えた」と解釈され、既存データが
+# すべて掲載終了扱いで上書きされてしまう。検出数がこれを下回ったら中断する。
+MIN_CATEGORIES = 10
 
 # 詳細ページ本文から金額を拾うときに手がかりにするラベル（出現順に優先）
 AMOUNT_LABELS = [
@@ -375,6 +380,14 @@ def main():
     category_links = find_category_links(top_soup)
     print(f"  {len(category_links)}/{len(CATEGORY_NAMES)} カテゴリを検出")
 
+    if len(category_links) < MIN_CATEGORIES:
+        print(
+            f"[中断] カテゴリ検出数 {len(category_links)} 件が下限 {MIN_CATEGORIES} 件を下回りました。"
+            f"サイト構造が変わった可能性があるため data.json は更新しません。",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     fresh_items = []
     for category, cat_url in category_links.items():
         print(f"[{category}] 年度ページを検索中...")
@@ -389,6 +402,16 @@ def main():
         print(f"  {len(items)} 件取得。募集中案件の金額を確認中...")
         items = [enrich_with_amount(it) for it in items]
         fresh_items.extend(items)
+
+    # カテゴリは拾えたのに案件が1件も取れないのも、テーブル構造の変更を疑うべき状態。
+    # 既存データを掲載終了扱いで潰さないよう、ここでも中断する。
+    if not fresh_items and previous_items:
+        print(
+            "[中断] 案件を1件も抽出できませんでした。既存データを保護するため "
+            "data.json は更新しません。",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     # ── 既存データとマージ（サイト上から消えた案件も履歴として残す） ──
     now_iso = datetime.now(timezone(timedelta(hours=9))).isoformat()
