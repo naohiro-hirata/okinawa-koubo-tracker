@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>沖縄県 公募・入札 一覧トラッカー</title>
+<style>
+  :root{
+    --navy:#12263a;
+    --navy-deep:#0b1a29;
+    --reef:#1f7a70;
+    --sand:#f6f4ee;
+    --paper:#ffffff;
+    --ink:#1c2b36;
+    --ink-soft:#5b6b75;
+    --line:#dfe3e0;
+    --urgent:#c1440e;
+    --urgent-bg:#fdece2;
+    --soon-bg:#fff6e0;
+    --soon:#8a6100;
+    --done-bg:#eef1ef;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--sand);
+    color:var(--ink);
+    font-family:"Hiragino Sans","Yu Gothic UI",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  header{
+    background:linear-gradient(135deg,var(--navy) 0%,var(--navy-deep) 100%);
+    color:#fff;
+    padding:28px 32px 24px;
+  }
+  header .eyebrow{
+    font-size:12px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:#8fd6c8;
+    margin:0 0 6px;
+  }
+  header h1{
+    margin:0;
+    font-size:22px;
+    font-weight:700;
+    letter-spacing:.01em;
+  }
+  header .meta{
+    margin-top:10px;
+    font-size:13px;
+    color:#c7d3d9;
+    display:flex;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+  header .meta strong{color:#fff;}
+
+  .toolbar{
+    max-width:1360px;
+    margin:20px auto 0;
+    padding:0 20px;
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  .toolbar input[type="text"],
+  .toolbar select{
+    border:1px solid var(--line);
+    background:var(--paper);
+    border-radius:8px;
+    padding:9px 12px;
+    font-size:13px;
+    color:var(--ink);
+  }
+  .toolbar input[type="text"]{min-width:220px;flex:1 1 220px;}
+  .toolbar .pill-group{display:flex;gap:6px;flex-wrap:wrap;}
+  .toolbar .pill{
+    border:1px solid var(--line);
+    background:var(--paper);
+    border-radius:999px;
+    padding:6px 14px;
+    font-size:12.5px;
+    cursor:pointer;
+    color:var(--ink-soft);
+    user-select:none;
+  }
+  .toolbar .pill.active{
+    background:var(--reef);
+    border-color:var(--reef);
+    color:#fff;
+  }
+  .toolbar .count{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin-left:auto;
+  }
+  .toolbar .toggle{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    display:flex;
+    align-items:center;
+    gap:6px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .toolbar .toggle input{cursor:pointer;}
+
+  main{max-width:1360px;margin:16px auto 60px;padding:0 20px;}
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    background:var(--paper);
+    border-radius:10px;
+    overflow:hidden;
+    box-shadow:0 1px 2px rgba(18,38,58,.06);
+  }
+  thead th{
+    text-align:left;
+    font-size:12px;
+    letter-spacing:.03em;
+    color:var(--ink-soft);
+    background:#eef2f0;
+    padding:11px 14px;
+    border-bottom:1px solid var(--line);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  thead th.sorted::after{content:" ▾";color:var(--reef);}
+  thead th.sorted.asc::after{content:" ▴";}
+  tbody td{
+    padding:12px 14px;
+    border-bottom:1px solid var(--line);
+    font-size:13.5px;
+    vertical-align:top;
+  }
+  tbody tr:hover{background:#f8fbfa;}
+  tbody tr:last-child td{border-bottom:none;}
+
+  td.title a{color:var(--navy);text-decoration:none;font-weight:600;}
+  td.title a:hover{text-decoration:underline;}
+  td.title .cat{display:block;font-size:11.5px;color:var(--ink-soft);margin-top:3px;font-weight:400;}
+
+  .badge{
+    display:inline-block;
+    font-size:11px;
+    padding:2px 8px;
+    border-radius:999px;
+    font-weight:600;
+  }
+  .badge.bid{background:#e4ecf5;color:#26456e;}
+  .badge.koubo{background:#e8e0f3;color:#4c2e82;}
+  .badge.removed{background:#ece7e2;color:#8a7a68;}
+  tr.is-removed{opacity:0.62;}
+  tr.is-removed td.title a{color:var(--ink-soft);}
+
+  .deadline{white-space:nowrap;font-weight:600;}
+  .deadline .days{display:block;font-size:11px;font-weight:500;margin-top:2px;}
+  .row-urgent td.deadline-cell{background:var(--urgent-bg);}
+  .row-urgent .deadline{color:var(--urgent);}
+  .row-soon td.deadline-cell{background:var(--soon-bg);}
+  .row-soon .deadline{color:var(--soon);}
+  .row-done .deadline{color:var(--ink-soft);font-weight:400;}
+
+  .amount{white-space:nowrap;}
+  .amount .label{display:block;font-size:11px;color:var(--ink-soft);}
+  .no-amount{color:var(--ink-soft);font-style:normal;font-size:12.5px;}
+
+  .empty-state{
+    text-align:center;
+    padding:60px 20px;
+    color:var(--ink-soft);
+    background:var(--paper);
+    border-radius:10px;
+  }
+  .loading{padding:40px;text-align:center;color:var(--ink-soft);}
+
+  footer{
+    max-width:1360px;margin:0 auto 40px;padding:0 20px;
+    font-size:12px;color:var(--ink-soft);
+  }
+  @media (max-width:720px){
+    header{padding:22px 18px;}
+    .toolbar{padding:0 12px;}
+    main{padding:0 12px;}
+    table, thead, tbody, th, td, tr{display:block;}
+    thead{display:none;}
+    tbody tr{border-bottom:1px solid var(--line);padding:10px 12px;display:block;}
+    tbody td{border-bottom:none;padding:4px 0;}
+    td.title{font-size:14px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <p class="eyebrow">Internal Team Tool</p>
+  <h1>沖縄県 公募・入札発注情報 一覧トラッカー</h1>
+  <div class="meta">
+    <span>最終更新: <strong id="updatedAt">読み込み中…</strong></span>
+    <span>件数: <strong id="itemCount">–</strong></span>
+    <span>出典: <a href="https://www.pref.okinawa.jp/shigoto/nyusatsukeiyaku/1015342/index.html" style="color:#8fd6c8" target="_blank" rel="noopener">沖縄県公式サイト</a></span>
+  </div>
+</header>
+
+<div class="toolbar">
+  <input type="text" id="searchBox" placeholder="案件名・担当課で検索" />
+
+  <select id="typeFilter">
+    <option value="">種別: すべて</option>
+    <option value="入札">入札</option>
+    <option value="公募">公募</option>
+  </select>
+  <select id="categoryFilter"><option value="">分類: すべて</option></select>
+  <select id="divisionFilter"><option value="">担当部: すべて</option></select>
+  <select id="sectionFilter"><option value="">担当課: すべて</option></select>
+
+  <div class="pill-group" id="statusPills">
+    <span class="pill active" data-status="">すべて</span>
+    <span class="pill" data-status="募集中">募集中</span>
+    <span class="pill" data-status="募集期間終了">募集終了</span>
+    <span class="pill" data-status="結果">結果</span>
+  </div>
+
+  <span class="count" id="visibleCount"></span>
+  <label class="toggle"><input type="checkbox" id="showRemoved" checked> サイトから削除された案件も表示</label>
+</div>
+
+<main>
+  <div id="tableWrap"><div class="loading">data.json を読み込んでいます…</div></div>
+</main>
+
+<footer>
+  このツールは沖縄県公式サイトの公開情報を毎朝自動取得して整形したものです。正式な情報・添付資料は必ず各案件の詳細ページでご確認ください。
+</footer>
+
+<script>
+const state = {
+  items: [],
+  sortKey: "deadline",
+  sortAsc: true,
+  search: "",
+  category: "",
+  division: "",
+  section: "",
+  status: "",
+  type: "",
+  showRemoved: true,
+};
+
+function daysUntil(dateStr){
+  if(!dateStr) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const target = new Date(dateStr+"T00:00:00");
+  return Math.round((target-today)/86400000);
+}
+
+function fmtDate(dateStr){
+  if(!dateStr) return "-";
+  const [y,m,d] = dateStr.split("-");
+  return `${y}/${m}/${d}`;
+}
+
+function fmtYen(n){
+  if(n===null || n===undefined) return null;
+  return "¥" + n.toLocaleString("ja-JP");
+}
+
+function deadlineSortValue(item){
+  // 締切(期限)優先。募集中/終了は period_end、結果は open_date。無ければ最後に回す。
+  const d = item.period_end || item.open_date;
+  return d || "9999-99-99";
+}
+
+function render(){
+  const wrap = document.getElementById("tableWrap");
+  let rows = state.items.filter(it => {
+    if(state.category && it.category !== state.category) return false;
+    if(state.division && it.dept_division !== state.division) return false;
+    if(state.section && it.dept_section !== state.section) return false;
+    if(state.status && it.status !== state.status) return false;
+    if(state.type && it.type !== state.type) return false;
+    if(!state.showRemoved && it.still_listed === false) return false;
+    if(state.search){
+      const q = state.search.toLowerCase();
+      if(!(it.title||"").toLowerCase().includes(q) && !(it.dept||"").toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
+  rows.sort((a,b) => {
+    let av, bv;
+    switch(state.sortKey){
+      case "deadline": av = deadlineSortValue(a); bv = deadlineSortValue(b); break;
+      case "amount": av = a.amount_yen ?? -1; bv = b.amount_yen ?? -1; break;
+      case "dept": av = a.dept||""; bv = b.dept||""; break;
+      case "division": av = a.dept_division||""; bv = b.dept_division||""; break;
+      case "section": av = a.dept_section||""; bv = b.dept_section||""; break;
+      case "title": av = a.title||""; bv = b.title||""; break;
+      case "type": av = a.type||""; bv = b.type||""; break;
+      case "category": av = a.category||""; bv = b.category||""; break;
+      default: av = a.title||""; bv = b.title||"";
+    }
+    if(av < bv) return state.sortAsc ? -1 : 1;
+    if(av > bv) return state.sortAsc ? 1 : -1;
+    return 0;
+  });
+
+  document.getElementById("visibleCount").textContent = `${rows.length} 件表示`;
+
+  if(rows.length === 0){
+    wrap.innerHTML = `<div class="empty-state">条件に一致する案件がありません。検索・絞り込みを見直してください。</div>`;
+    return;
+  }
+
+  const th = (key, label) => `<th data-key="${key}" class="${state.sortKey===key?'sorted '+(state.sortAsc?'asc':''):''}">${label}</th>`;
+  const html = [`<table><thead><tr>
+    ${th("type","種別")}
+    ${th("title","案件名")}
+    ${th("category","分類")}
+    ${th("division","担当部")}
+    ${th("section","担当課")}
+    ${th("amount","金額")}
+    ${th("deadline","期限")}
+  </tr></thead><tbody>`];
+
+  for(const it of rows){
+    const d = it.period_end || it.open_date;
+    const days = it.status === "募集中" ? daysUntil(d) : null;
+    let rowClass = "row-done";
+    if(it.status === "募集中"){
+      if(days !== null && days <= 3) rowClass = "row-urgent";
+      else if(days !== null && days <= 7) rowClass = "row-soon";
+      else rowClass = "row-open";
+    }
+
+    let deadlineLabel, daysLabel = "";
+    if(it.status === "結果"){
+      deadlineLabel = it.open_date ? `開札 ${fmtDate(it.open_date)}` : "-";
+    } else {
+      deadlineLabel = it.period_end ? `〜 ${fmtDate(it.period_end)}` : "-";
+      if(it.status === "募集中" && days !== null){
+        daysLabel = days < 0 ? "締切済み" : days === 0 ? "本日締切" : `あと${days}日`;
+      }
+    }
+
+    const typeBadge = it.type === "公募"
+      ? `<span class="badge koubo">公募</span>`
+      : `<span class="badge bid">入札</span>`;
+
+    const amountTitle = it.amount_source ? ` title="出典: ${escapeHtml(it.amount_source)}"` : "";
+    const amountHtml = it.amount_yen
+      ? `<span class="amount"${amountTitle}>${fmtYen(it.amount_yen)}<span class="label">${escapeHtml(it.amount_label||"")}</span></span>`
+      : `<span class="no-amount">${it.status==='募集中' ? '記載なし' : '-'}</span>`;
+
+    html.push(`<tr class="${rowClass}${it.still_listed===false?' is-removed':''}">
+      <td>${typeBadge}</td>
+      <td class="title">
+        ${it.url ? `<a href="${it.url}" target="_blank" rel="noopener">${escapeHtml(it.title)}</a>` : escapeHtml(it.title)}
+        <span class="cat">${escapeHtml(it.fiscal_year||"")}${it.still_listed===false?' <span class="badge removed">サイトから削除</span>':''}</span>
+      </td>
+      <td>${escapeHtml(it.category||"-")}</td>
+      <td>${escapeHtml(it.dept_division||"-")}</td>
+      <td>${escapeHtml(it.dept_section||"-")}</td>
+      <td>${amountHtml}</td>
+      <td class="deadline-cell"><span class="deadline">${deadlineLabel}${daysLabel?`<span class="days">${daysLabel}</span>`:""}</span></td>
+    </tr>`);
+  }
+  html.push("</tbody></table>");
+  wrap.innerHTML = html.join("");
+
+  wrap.querySelectorAll("th[data-key]").forEach(th => {
+    th.addEventListener("click", () => {
+      const key = th.dataset.key;
+      if(state.sortKey === key) state.sortAsc = !state.sortAsc;
+      else { state.sortKey = key; state.sortAsc = true; }
+      render();
+    });
+  });
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function populateFilters(items){
+  const categories = [...new Set(items.map(i=>i.category).filter(Boolean))].sort();
+  const divisions = [...new Set(items.map(i=>i.dept_division).filter(Boolean))].sort();
+  const catSel = document.getElementById("categoryFilter");
+  const divSel = document.getElementById("divisionFilter");
+  for(const c of categories) catSel.innerHTML += `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`;
+  for(const d of divisions) divSel.innerHTML += `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`;
+  populateSectionOptions(items, "");
+}
+
+function populateSectionOptions(items, division){
+  const secSel = document.getElementById("sectionFilter");
+  const pool = division ? items.filter(i => i.dept_division === division) : items;
+  const sections = [...new Set(pool.map(i=>i.dept_section).filter(Boolean))].sort();
+  secSel.innerHTML = `<option value="">担当課: すべて</option>` +
+    sections.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
+}
+
+async function load(){
+  try{
+    const res = await fetch("data.json", {cache:"no-store"});
+    const data = await res.json();
+    state.items = data.items || [];
+    document.getElementById("updatedAt").textContent = data.updated_at
+      ? new Date(data.updated_at).toLocaleString("ja-JP")
+      : "不明";
+    document.getElementById("itemCount").textContent = data.item_count ?? state.items.length;
+    populateFilters(state.items);
+    render();
+  }catch(e){
+    document.getElementById("tableWrap").innerHTML =
+      `<div class="empty-state">data.json の読み込みに失敗しました。<br>${escapeHtml(e.message||e)}</div>`;
+  }
+}
+
+document.getElementById("searchBox").addEventListener("input", e => { state.search = e.target.value; render(); });
+document.getElementById("categoryFilter").addEventListener("change", e => { state.category = e.target.value; render(); });
+document.getElementById("typeFilter").addEventListener("change", e => { state.type = e.target.value; render(); });
+document.getElementById("divisionFilter").addEventListener("change", e => {
+  state.division = e.target.value;
+  state.section = ""; // 部を変えたら課の選択はリセット
+  populateSectionOptions(state.items, state.division);
+  render();
+});
+document.getElementById("sectionFilter").addEventListener("change", e => { state.section = e.target.value; render(); });
+document.getElementById("showRemoved").addEventListener("change", e => { state.showRemoved = e.target.checked; render(); });
+document.querySelectorAll("#statusPills .pill").forEach(p => {
+  p.addEventListener("click", () => {
+    document.querySelectorAll("#statusPills .pill").forEach(x=>x.classList.remove("active"));
+    p.classList.add("active");
+    state.status = p.dataset.status;
+    render();
+  });
+});
+
+load();
+</script>
+</body>
+</html>
